@@ -77,6 +77,7 @@ th{color:var(--mut);font-weight:600;font-size:13px}
     <div style="flex:1;min-width:130px"><label>تا تاریخ</label><div class="jd" id="to"></div></div>
     <div style="flex:1;min-width:110px"><label>نوع</label>
       <select id="ft2"><option value="">همه</option><option value="deposit">واریز</option><option value="withdraw">برداشت</option><option value="profit">سود</option><option value="loss">ضرر</option></select></div>
+    <div style="flex:1;min-width:120px"><label>ترتیب هر روز</label><select id="ord"><option value="new">جدیدترین بالا</option><option value="old">قدیمی‌ترین بالا</option></select></div>
   </div>
   <div class="row" style="margin-bottom:14px">
     <button class="sm" data-q="today">امروز</button>
@@ -164,7 +165,7 @@ $('f').onsubmit=e=>{
   e.preventDefault();
   const t=$('type').value,amt=num($('amt').value);
   if(!$('date').value||amt<=0)return toast('تاریخ و مبلغ را وارد کنید');
-  const r={id:editId||crypto.randomUUID(),type:t,date:$('date').value,amount:amt,note:$('note').value.trim()};
+  const r={id:editId||crypto.randomUUID(),ca:new Date().toISOString(),type:t,date:$('date').value,amount:amt,note:$('note').value.trim()};
   if(isTrade(t)){r.side=$('side').value;r.entry=num($('entry').value);r.exit=num($('exit').value);r.symbol=$('sym').value.trim()}
   if(editId){rows=rows.map(x=>x.id===editId?r:x)}else rows.push(r);
   save();put(r);toast(editId?'ویرایش شد':'ثبت شد');resetForm();render();
@@ -206,7 +207,7 @@ const cls=n=>n>0?'pos':n<0?'neg':'';
 function render(){
   const f=$('from').value,t=$('to').value,ty=$('ft2').value;
   const fl=rows.filter(r=>(!f||r.date>=f)&&(!t||r.date<=t)&&(!ty||r.type===ty))
-    .sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
+    .sort(cmp);
   const rg=rows.filter(r=>(!f||r.date>=f)&&(!t||r.date<=t));
   const by=k=>rg.filter(r=>r.type===k);
   const pr=sum(by('profit')),ls=sum(by('loss')),net=pr-ls;
@@ -226,7 +227,7 @@ function render(){
     :'<tr><td colspan="6" class="mut">در این بازه تراکنشی ثبت نشده.</td></tr>';
   /* list */
   const nf=n=>Number(n).toLocaleString('fa-IR',{useGrouping:false,maximumFractionDigits:6});
-  const tr=rg.filter(r=>isTrade(r.type)&&(!isTrade(ty)||r.type===ty)).sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
+  const tr=rg.filter(r=>isTrade(r.type)&&(!isTrade(ty)||r.type===ty)).sort(cmp);
   $('tcnt').textContent='('+fa(tr.length)+')';
   $('tempty').style.display=tr.length?'none':'block';
   $('trades').innerHTML=tr.map(r=>`<tr class="r-${r.type}"><td>${jd(r.date)}</td><td>${r.side==='buy'?'خرید':'فروش'}</td><td>${esc(r.symbol)||'—'}</td><td>${nf(r.entry)}</td><td>${nf(r.exit)}</td><td><span class="bd t-${r.type}">${TN[r.type]}</span></td><td class="${r.type==='profit'?'pos':'neg'}">${r.type==='loss'?'-':''}${fa(r.amount)}</td></tr>`).join('');
@@ -297,7 +298,11 @@ async function api(path,opt={}){
   return r.status===204?null:r.json().catch(()=>null);
 }
 const toDb=r=>({id:r.id,type:r.type,date:r.date,amount:r.amount,side:r.side||null,entry_price:r.entry==null?null:r.entry,exit_price:r.exit==null?null:r.exit,unit:r.symbol||null,note:r.note||null});
-const fromDb=d=>({id:d.id,type:d.type,date:d.date,amount:Number(d.amount),side:d.side||undefined,entry:d.entry_price==null?0:Number(d.entry_price),exit:d.exit_price==null?0:Number(d.exit_price),symbol:d.unit||'',note:d.note||''});
+const fromDb=d=>({id:d.id,type:d.type,date:d.date,amount:Number(d.amount),side:d.side||undefined,entry:d.entry_price==null?0:Number(d.entry_price),exit:d.exit_price==null?0:Number(d.exit_price),symbol:d.unit||'',note:d.note||'',ca:d.created_at||''});
+let asc=false;try{asc=localStorage.getItem('tj.ord')==='old'}catch(e){}
+const cmp=(a,b)=>b.date.localeCompare(a.date)||(asc?-1:1)*(b.ca||'').localeCompare(a.ca||'')||b.id.localeCompare(a.id);
+$('ord').value=asc?'old':'new';
+$('ord').onchange=()=>{asc=$('ord').value==='old';try{localStorage.setItem('tj.ord',asc?'old':'new')}catch(e){}render()};
 async function fetchAll(){
   let all=[],off=0;
   for(;;){const p=await api('trade_journal?select=*&order=date.desc,created_at.desc&limit=1000&offset='+off);all=all.concat(p||[]);if(!p||p.length<1000)break;off+=1000}
@@ -305,7 +310,7 @@ async function fetchAll(){
 }
 const authFail=()=>{showAuth(true);setSync('لطفاً وارد شوید',1)};
 const wf=e=>{if(e&&e.message==='auth')return authFail();toast('خطا در ارتباط با سرور');setSync('⚠ ارتباط با سرور ناموفق بود',1);fetchAll().catch(()=>{})};
-function put(r){api('trade_journal?on_conflict=id',{method:'POST',h:{Prefer:'resolution=merge-duplicates,return=minimal'},body:toDb(r)}).catch(wf)}
+function put(r){api('trade_journal?on_conflict=id',{method:'POST',h:{Prefer:'resolution=merge-duplicates,return=minimal'},body:toDb(r)}).then(()=>fetchAll()).catch(wf)}
 function rem(id){api('trade_journal?id=eq.'+encodeURIComponent(id),{method:'DELETE'}).catch(wf)}
 async function start(){
   setSync('در حال بارگذاری…');
@@ -323,7 +328,7 @@ $('imp').onclick=async()=>{
   if(!Array.isArray(a))return toast('متن پشتیبان معتبر نیست');
   const ok=a.filter(r=>r&&['deposit','withdraw','profit','loss'].includes(r.type)&&/^\d{4}-\d{2}-\d{2}$/.test(r.date)&&Number(r.amount)>0);
   if(!ok.length)return toast('ردیف معتبری پیدا نشد');
-  const body=ok.map(r=>toDb({...r,id:crypto.randomUUID(),amount:Number(r.amount)}));
+  const body=ok.map((r,i)=>({...toDb({...r,id:crypto.randomUUID(),amount:Number(r.amount)}),created_at:new Date(Date.now()-i*1000).toISOString()}));
   $('imp').disabled=true;
   try{await api('trade_journal',{method:'POST',h:{Prefer:'return=minimal'},body});$('impt').value='';toast(fa(body.length)+' تراکنش منتقل شد');await fetchAll()}
   catch(e){toast(e.message==='auth'?'ابتدا وارد شوید':'خطا: '+e.message);$('imp').disabled=false}
