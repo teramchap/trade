@@ -1,0 +1,57 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+
+      - name: Create Capacitor project
+        run: |
+          mkdir apkbuild && cd apkbuild
+          mkdir www assets
+          sed '/serviceWorker/d' ../index.html > www/index.html
+          npm init -y
+          npm install @capacitor/core@6 @capacitor/android@6
+          npm install -D @capacitor/cli@6 @capacitor/assets@3
+          cat > capacitor.config.json <<'JSON'
+          {"appId":"com.mahmood.tradejournal","appName":"دفتر معاملات","webDir":"www","backgroundColor":"#000000","server":{"androidScheme":"https"}}
+          JSON
+          npx cap add android
+
+      - name: Generate icons
+        continue-on-error: true
+        working-directory: apkbuild
+        run: |
+          convert ../icon-512.png -resize 1024x1024 assets/icon-only.png
+          convert ../icon-512.png -resize 680x680 -background black -gravity center -extent 1024x1024 assets/icon-foreground.png
+          convert -size 1024x1024 xc:black assets/icon-background.png
+          npx capacitor-assets generate --android
+
+      - name: Build debug APK
+        working-directory: apkbuild
+        run: |
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trade-journal-apk
+          path: apkbuild/android/app/build/outputs/apk/debug/app-debug.apk
