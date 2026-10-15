@@ -34,6 +34,7 @@ button.sm{padding:3px 9px;font-size:13px}
 .pos{color:var(--g)}.neg{color:var(--r)}
 .r-profit td:first-child{border-right:3px solid var(--g)}.r-loss td:first-child{border-right:3px solid var(--r)}
 .tw{overflow-x:auto}
+.sc{max-height:640px;overflow:auto;-webkit-overflow-scrolling:touch}.sc th{position:sticky;top:0;background:var(--card);z-index:1;box-shadow:0 1px 0 var(--bd)}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{padding:7px 8px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap}
 th{color:var(--mut);font-weight:600;font-size:13px}
@@ -89,18 +90,18 @@ th{color:var(--mut);font-weight:600;font-size:13px}
   <div class="stats" id="stats"></div>
 
   <h2>گزارش روزانه (سود، ضرر و دارایی پایان روز)</h2>
-  <div class="tw"><table><thead><tr><th>تاریخ</th><th>سود</th><th>ضرر</th><th>قبل از کارمزد</th><th>کارمزد</th><th>خالص پس از کارمزد</th><th>دارایی پایان روز</th><th style="width:20%"></th></tr></thead><tbody id="daily"></tbody></table></div>
+  <div class="tw sc"><table><thead><tr><th>تاریخ</th><th>سود</th><th>ضرر</th><th>قبل از کارمزد</th><th>کارمزد</th><th>خالص پس از کارمزد</th><th>دارایی پایان روز</th><th style="width:20%"></th></tr></thead><tbody id="daily"></tbody></table></div>
 </div>
 
 <div class="card">
   <h2>گزارش معاملات (فقط سود و ضرر) <span class="mut" id="tcnt"></span></h2>
-  <div class="tw"><table><thead><tr><th>تاریخ</th><th>خرید/فروش</th><th>واحد</th><th>نقطه ورود</th><th>نقطه خروج</th><th>نتیجه</th><th>مبلغ (تومان)</th><th>خالص پس از کارمزد</th></tr></thead><tbody id="trades"></tbody></table></div>
+  <div class="tw sc"><table><thead><tr><th>تاریخ</th><th>خرید/فروش</th><th>واحد</th><th>نقطه ورود</th><th>نقطه خروج</th><th>نتیجه</th><th>مبلغ (تومان)</th><th>خالص پس از کارمزد</th></tr></thead><tbody id="trades"></tbody></table></div>
   <p class="mut" id="tempty" style="text-align:center">در این بازه معامله‌ای ثبت نشده.</p>
 </div>
 
 <div class="card">
   <h2>لیست تراکنش‌ها <span class="mut" id="cnt"></span></h2>
-  <div class="tw"><table><thead><tr><th>تاریخ</th><th>نوع</th><th>مبلغ (تومان)</th><th></th></tr></thead><tbody id="list"></tbody></table></div>
+  <div class="tw sc"><table><thead><tr><th>تاریخ</th><th>نوع</th><th>مبلغ (تومان)</th><th></th></tr></thead><tbody id="list"></tbody></table></div>
   <p class="mut" id="empty" style="text-align:center">هنوز تراکنشی ثبت نشده.</p>
   
 <div class="card">
