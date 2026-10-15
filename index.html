@@ -94,7 +94,7 @@ th{color:var(--mut);font-weight:600;font-size:13px}
 
 <div class="card">
   <h2>گزارش معاملات (فقط سود و ضرر) <span class="mut" id="tcnt"></span></h2>
-  <div class="tw"><table><thead><tr><th>تاریخ</th><th>خرید/فروش</th><th>واحد</th><th>نقطه ورود</th><th>نقطه خروج</th><th>نتیجه</th><th>مبلغ (تومان)</th><th>کارمزد</th><th>خالص پس از کارمزد</th></tr></thead><tbody id="trades"></tbody></table></div>
+  <div class="tw"><table><thead><tr><th>تاریخ</th><th>خرید/فروش</th><th>واحد</th><th>نقطه ورود</th><th>نقطه خروج</th><th>نتیجه</th><th>مبلغ (تومان)</th><th>خالص پس از کارمزد</th></tr></thead><tbody id="trades"></tbody></table></div>
   <p class="mut" id="tempty" style="text-align:center">در این بازه معامله‌ای ثبت نشده.</p>
 </div>
 
@@ -232,7 +232,7 @@ function render(){
   const tr=rg.filter(r=>isTrade(r.type)&&(!isTrade(ty)||r.type===ty)).sort(cmp);
   $('tcnt').textContent='('+fa(tr.length)+')';
   $('tempty').style.display=tr.length?'none':'block';
-  $('trades').innerHTML=tr.map(r=>`<tr class="r-${r.type}"><td>${jd(r.date)}</td><td>${r.side==='buy'?'خرید':'فروش'}</td><td>${esc(r.symbol)||'—'}</td><td>${nf(r.entry)}</td><td>${nf(r.exit)}</td><td><span class="bd t-${r.type}">${TN[r.type]}</span></td><td class="${r.type==='profit'?'pos':'neg'}">${r.type==='loss'?'-':''}${fa(r.amount)}</td><td class="neg">${fa(fee)}</td><td class="${nvf(r)>=0?'pos':'neg'}"><b>${sgn(nvf(r))}</b></td></tr>`).join('');
+  $('trades').innerHTML=tr.map(r=>`<tr class="r-${r.type}"><td>${jd(r.date)}</td><td>${r.side==='buy'?'خرید':'فروش'}</td><td>${esc(r.symbol)||'—'}</td><td>${nf(r.entry)}</td><td>${nf(r.exit)}</td><td><span class="bd t-${r.type}">${TN[r.type]}</span></td><td class="${r.type==='profit'?'pos':'neg'}">${r.type==='loss'?'-':''}${fa(r.amount)}</td><td class="${nvf(r)>=0?'pos':'neg'}"><b>${sgn(nvf(r))}</b></td></tr>`).join('');
   $('cnt').textContent='('+fa(fl.length)+')';
   $('empty').style.display=fl.length?'none':'block';
   $('list').innerHTML=fl.map(r=>{
