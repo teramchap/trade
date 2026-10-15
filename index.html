@@ -78,6 +78,7 @@ th{color:var(--mut);font-weight:600;font-size:13px}
     <div style="flex:1;min-width:110px"><label>نوع</label>
       <select id="ft2"><option value="">همه</option><option value="deposit">واریز</option><option value="withdraw">برداشت</option><option value="profit">سود</option><option value="loss">ضرر</option></select></div>
     <div style="flex:1;min-width:120px"><label>ترتیب هر روز</label><select id="ord"><option value="new">جدیدترین بالا</option><option value="old">قدیمی‌ترین بالا</option></select></div>
+    <div style="flex:1;min-width:150px"><label>کارمزد هر معامله (تومان)</label><input class="n" id="fee" inputmode="numeric" autocomplete="off"></div>
   </div>
   <div class="row" style="margin-bottom:14px">
     <button class="sm" data-q="today">امروز</button>
@@ -88,12 +89,12 @@ th{color:var(--mut);font-weight:600;font-size:13px}
   <div class="stats" id="stats"></div>
 
   <h2>گزارش روزانه (سود، ضرر و دارایی پایان روز)</h2>
-  <div class="tw"><table><thead><tr><th>تاریخ</th><th>سود</th><th>ضرر</th><th>خالص</th><th>دارایی پایان روز</th><th style="width:20%"></th></tr></thead><tbody id="daily"></tbody></table></div>
+  <div class="tw"><table><thead><tr><th>تاریخ</th><th>سود</th><th>ضرر</th><th>قبل از کارمزد</th><th>کارمزد</th><th>خالص پس از کارمزد</th><th>دارایی پایان روز</th><th style="width:20%"></th></tr></thead><tbody id="daily"></tbody></table></div>
 </div>
 
 <div class="card">
   <h2>گزارش معاملات (فقط سود و ضرر) <span class="mut" id="tcnt"></span></h2>
-  <div class="tw"><table><thead><tr><th>تاریخ</th><th>خرید/فروش</th><th>واحد</th><th>نقطه ورود</th><th>نقطه خروج</th><th>نتیجه</th><th>مبلغ (تومان)</th></tr></thead><tbody id="trades"></tbody></table></div>
+  <div class="tw"><table><thead><tr><th>تاریخ</th><th>خرید/فروش</th><th>واحد</th><th>نقطه ورود</th><th>نقطه خروج</th><th>نتیجه</th><th>مبلغ (تومان)</th><th>کارمزد</th><th>خالص پس از کارمزد</th></tr></thead><tbody id="trades"></tbody></table></div>
   <p class="mut" id="tempty" style="text-align:center">در این بازه معامله‌ای ثبت نشده.</p>
 </div>
 
@@ -212,25 +213,26 @@ function render(){
   const by=k=>rg.filter(r=>r.type===k);
   const pr=sum(by('profit')),ls=sum(by('loss')),net=pr-ls;
   const dp=sum(by('deposit')),wd=sum(by('withdraw'));
-  const balance=sum(rows.filter(r=>r.type==='deposit'))-sum(rows.filter(r=>r.type==='withdraw'))+sum(rows.filter(r=>r.type==='profit'))-sum(rows.filter(r=>r.type==='loss'));
+  const balance=sum(rows.filter(r=>r.type==='deposit'))-sum(rows.filter(r=>r.type==='withdraw'))+sum(rows.filter(r=>r.type==='profit'))-sum(rows.filter(r=>r.type==='loss'))-fee*rows.filter(r=>isTrade(r.type)).length;
   const nw=by('profit').length,nl=by('loss').length,wr=nw+nl?Math.round(nw/(nw+nl)*100):0;
+  const nT=nw+nl,fees=nT*fee,netAfter=net-fees;
   const S=(l,v,c='')=>`<div class="st"><span>${l}</span><b class="${c}">${v}</b></div>`;
-  $('stats').innerHTML=S('مجموع سود',fa(pr),'pos')+S('مجموع ضرر',fa(ls),'neg')+S('سود/زیان خالص',fa(net),cls(net))
+  $('stats').innerHTML=S('مجموع سود',fa(pr),'pos')+S('مجموع ضرر',fa(ls),'neg')+S('سود/زیان قبل از کارمزد',fa(net),cls(net))+S('کارمزد کل ('+fa(nT)+' معامله)',fa(fees),'neg')+S('خالص پس از کارمزد',fa(netAfter),cls(netAfter))
     +S('واریز',fa(dp))+S('برداشت',fa(wd))+S('تعداد معاملات / درصد برد',fa(nw+nl)+' / '+fa(wr)+'٪')+S('موجودی کل حساب',fa(balance),cls(balance));
   /* daily */
   const days={};
-  rg.forEach(r=>{const d=days[r.date]||(days[r.date]={p:0,l:0});if(r.type==='profit')d.p+=r.amount;else if(r.type==='loss')d.l+=r.amount});
-  const eod={};let run=0;[...rows].sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{run+=(r.type==='deposit'||r.type==='profit')?r.amount:-r.amount;eod[r.date]=run});
-  const ds=Object.keys(days).sort().reverse(),mx=Math.max(1,...ds.map(k=>Math.abs(days[k].p-days[k].l)));
-  $('daily').innerHTML=ds.length?ds.map(k=>{const d=days[k],n=d.p-d.l;
-    return `<tr><td>${jd(k)}</td><td class="pos">${fa(d.p)}</td><td class="neg">${fa(d.l)}</td><td class="${cls(n)}"><b>${fa(n)}</b></td><td class="${cls(eod[k])}"><b>${fa(eod[k])}</b></td><td><div class="bar" style="width:${Math.abs(n)/mx*100}%;background:var(${n>=0?'--g':'--r'})"></div></td></tr>`}).join('')
-    :'<tr><td colspan="6" class="mut">در این بازه تراکنشی ثبت نشده.</td></tr>';
+  rg.forEach(r=>{const d=days[r.date]||(days[r.date]={p:0,l:0});if(r.type==='profit'){d.p+=r.amount;d.c=(d.c||0)+1}else if(r.type==='loss'){d.l+=r.amount;d.c=(d.c||0)+1}});
+  const eod={};let run=0;[...rows].sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{run+=(r.type==='deposit'||r.type==='profit')?r.amount:-r.amount;if(isTrade(r.type))run-=fee;eod[r.date]=run});
+  const ds=Object.keys(days).sort().reverse(),mx=Math.max(1,...ds.map(k=>Math.abs(days[k].p-days[k].l-(days[k].c||0)*fee)));
+  $('daily').innerHTML=ds.length?ds.map(k=>{const d=days[k],g=d.p-d.l,fe=(d.c||0)*fee,n=g-fe;
+    return `<tr><td>${jd(k)}</td><td class="pos">${fa(d.p)}</td><td class="neg">${fa(d.l)}</td><td class="${cls(g)}">${fa(g)}</td><td class="neg">${fa(fe)}</td><td class="${cls(n)}"><b>${fa(n)}</b></td><td class="${cls(eod[k])}"><b>${fa(eod[k])}</b></td><td><div class="bar" style="width:${Math.abs(n)/mx*100}%;background:var(${n>=0?'--g':'--r'})"></div></td></tr>`}).join('')
+    :'<tr><td colspan="8" class="mut">در این بازه تراکنشی ثبت نشده.</td></tr>';
   /* list */
   const nf=n=>Number(n).toLocaleString('fa-IR',{useGrouping:false,maximumFractionDigits:6});
   const tr=rg.filter(r=>isTrade(r.type)&&(!isTrade(ty)||r.type===ty)).sort(cmp);
   $('tcnt').textContent='('+fa(tr.length)+')';
   $('tempty').style.display=tr.length?'none':'block';
-  $('trades').innerHTML=tr.map(r=>`<tr class="r-${r.type}"><td>${jd(r.date)}</td><td>${r.side==='buy'?'خرید':'فروش'}</td><td>${esc(r.symbol)||'—'}</td><td>${nf(r.entry)}</td><td>${nf(r.exit)}</td><td><span class="bd t-${r.type}">${TN[r.type]}</span></td><td class="${r.type==='profit'?'pos':'neg'}">${r.type==='loss'?'-':''}${fa(r.amount)}</td></tr>`).join('');
+  $('trades').innerHTML=tr.map(r=>`<tr class="r-${r.type}"><td>${jd(r.date)}</td><td>${r.side==='buy'?'خرید':'فروش'}</td><td>${esc(r.symbol)||'—'}</td><td>${nf(r.entry)}</td><td>${nf(r.exit)}</td><td><span class="bd t-${r.type}">${TN[r.type]}</span></td><td class="${r.type==='profit'?'pos':'neg'}">${r.type==='loss'?'-':''}${fa(r.amount)}</td><td class="neg">${fa(fee)}</td><td class="${nvf(r)>=0?'pos':'neg'}"><b>${sgn(nvf(r))}</b></td></tr>`).join('');
   $('cnt').textContent='('+fa(fl.length)+')';
   $('empty').style.display=fl.length?'none':'block';
   $('list').innerHTML=fl.map(r=>{
@@ -300,6 +302,10 @@ async function api(path,opt={}){
 const toDb=r=>({id:r.id,type:r.type,date:r.date,amount:r.amount,side:r.side||null,entry_price:r.entry==null?null:r.entry,exit_price:r.exit==null?null:r.exit,unit:r.symbol||null,note:r.note||null});
 const fromDb=d=>({id:d.id,type:d.type,date:d.date,amount:Number(d.amount),side:d.side||undefined,entry:d.entry_price==null?0:Number(d.entry_price),exit:d.exit_price==null?0:Number(d.exit_price),symbol:d.unit||'',note:d.note||'',ca:d.created_at||''});
 let asc=false;try{asc=localStorage.getItem('tj.ord')==='old'}catch(e){}
+let fee=14000;try{const v=localStorage.getItem('tj.fee');if(v!==null&&v!=='')fee=Number(v)||0}catch(e){}
+$('fee').value=fee.toLocaleString('en-US');
+$('fee').addEventListener('input',e=>{fmt(e.target,false);fee=num(e.target.value);try{localStorage.setItem('tj.fee',String(fee))}catch(_){}render()});
+const nvf=r=>(r.type==='profit'?r.amount:-r.amount)-fee,sgn=v=>(v<0?'-':'')+fa(Math.abs(v));
 const cmp=(a,b)=>b.date.localeCompare(a.date)||(asc?-1:1)*(b.ca||'').localeCompare(a.ca||'')||b.id.localeCompare(a.id);
 $('ord').value=asc?'old':'new';
 $('ord').onchange=()=>{asc=$('ord').value==='old';try{localStorage.setItem('tj.ord',asc?'old':'new')}catch(e){}render()};
