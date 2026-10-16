@@ -54,16 +54,18 @@ th{color:var(--mut);font-weight:600;font-size:13px}
   <h2 id="ft">ثبت تراکنش جدید</h2>
   <div class="grid">
     <div><label>نوع</label>
-      <select id="type"><option value="deposit">واریز</option><option value="withdraw">برداشت</option><option value="profit">سود</option><option value="loss">ضرر</option></select></div>
+      <select id="type"><option value="deposit">واریز</option><option value="withdraw">برداشت</option><option value="profit" selected>سود</option><option value="loss">ضرر</option></select></div>
     <div><label>تاریخ</label><div class="jd" id="date"></div></div>
     <div><label>مبلغ (تومان)</label><input class="n" id="amt" inputmode="numeric" autocomplete="off" placeholder="0"></div>
   </div>
-  <div id="tf" class="grid hide" style="margin-top:10px">
+  <div id="tf" class="grid" style="margin-top:10px">
     <div><label>خرید / فروش</label><select id="side"><option value="buy">خرید</option><option value="sell">فروش</option></select></div>
     <div><label>نقطه ورود</label><input class="n" id="entry" inputmode="decimal" autocomplete="off"></div>
     <div><label>نقطه خروج</label><input class="n" id="exit" inputmode="decimal" autocomplete="off"></div>
-    <div><label>واحد (اختیاری)</label><input id="sym"></div>
+    <div><label>واحد</label><input class="n" id="sym" inputmode="decimal" autocomplete="off"></div>
+    <div><label>نرخ هر واحد (تومان)</label><input class="n" id="rate" inputmode="numeric" autocomplete="off"></div>
   </div>
+  <p id="hint" class="mut" style="margin:6px 0 0;color:var(--r)"></p>
   <div style="margin-top:10px"><label>توضیح (اختیاری)</label><input id="note"></div>
   <div class="row" style="margin-top:12px">
     <button class="p" type="submit" id="sb">ثبت</button>
@@ -158,8 +160,8 @@ const isTrade=t=>t==='profit'||t==='loss';
 $('type').onchange=()=>$('tf').classList.toggle('hide',!isTrade($('type').value));
 
 function resetForm(){
-  editId=null;$('f').reset();$('date').value=today();
-  $('tf').classList.add('hide');$('ft').textContent='ثبت تراکنش جدید';$('sb').textContent='ثبت';$('cx').classList.add('hide');
+  editId=null;$('f').reset();$('date').value=lastDate();$('rate').value=rate.toLocaleString('en-US');$('hint').textContent='';
+  $('type').onchange();$('ft').textContent='ثبت تراکنش جدید';$('sb').textContent='ثبت';$('cx').classList.add('hide');
 }
 $('cx').onclick=resetForm;
 
@@ -303,6 +305,20 @@ async function api(path,opt={}){
 const toDb=r=>({id:r.id,type:r.type,date:r.date,amount:r.amount,side:r.side||null,entry_price:r.entry==null?null:r.entry,exit_price:r.exit==null?null:r.exit,unit:r.symbol||null,note:r.note||null});
 const fromDb=d=>({id:d.id,type:d.type,date:d.date,amount:Number(d.amount),side:d.side||undefined,entry:d.entry_price==null?0:Number(d.entry_price),exit:d.exit_price==null?0:Number(d.exit_price),symbol:d.unit||'',note:d.note||'',ca:d.created_at||''});
 let asc=false;try{asc=localStorage.getItem('tj.ord')==='old'}catch(e){}
+const lastDate=()=>{try{return localStorage.getItem('tj.ld')||today()}catch(e){return today()}};
+$('date').addEventListener('change',()=>{const v=$('date').value;if(v){try{localStorage.setItem('tj.ld',v)}catch(e){}}});
+let rate=23000;try{const v=localStorage.getItem('tj.rate');if(v!==null&&v!=='')rate=Number(v)||0}catch(e){}
+$('rate').value=rate.toLocaleString('en-US');
+function calcAmt(){
+  const en=num($('entry').value),ex=num($('exit').value),u=num($('sym').value),h=$('hint');
+  if(!(en>0&&ex>0&&u>0&&rate>0)){h.textContent='';return}
+  const diff=$('side').value==='buy'?ex-en:en-ex;
+  $('amt').value=Math.round(Math.abs(diff)*u*rate).toLocaleString('en-US');
+  h.textContent=diff!==0&&(diff>0)!==($('type').value==='profit')?'⚠ طبق نقطه ورود و خروج، این معامله '+(diff>0?'سود':'ضرر')+' است':'';
+}
+['entry','exit','sym'].forEach(id=>$(id).addEventListener('input',calcAmt));
+$('side').addEventListener('change',calcAmt);$('type').addEventListener('change',calcAmt);
+$('rate').addEventListener('input',e=>{fmt(e.target,false);rate=num(e.target.value);try{localStorage.setItem('tj.rate',String(rate))}catch(_){}calcAmt()});
 let fee=14000;try{const v=localStorage.getItem('tj.fee');if(v!==null&&v!=='')fee=Number(v)||0}catch(e){}
 $('fee').value=fee.toLocaleString('en-US');
 $('fee').addEventListener('input',e=>{fmt(e.target,false);fee=num(e.target.value);try{localStorage.setItem('tj.fee',String(fee))}catch(_){}render()});
@@ -342,7 +358,7 @@ $('imp').onclick=async()=>{
 };
 function boot(){sess?start():authFail()}
 mkJ('date');mkJ('from',1);mkJ('to',1);
-load();$('date').value=today();render();boot();
+load();$('date').value=lastDate();$('type').onchange();render();boot();
 </script>
 <script>if("serviceWorker" in navigator&&location.protocol.indexOf("http")===0)navigator.serviceWorker.register("sw.js").catch(function(){});</script>
 </body>
