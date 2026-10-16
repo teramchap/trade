@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#000000"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<title>دفتر معاملات</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#000;--card:#0d0d0d;--tx:#f2f2f2;--mut:#8a8f98;--bd:#262626;--pri:#b6ff00;--g:#22c55e;--r:#ff4d4d;--gb:#0f2a17;--rb:#2a1010;--bb:#1c1c1c;--ab:#2b2600;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font-family:Vazirmatn,Tahoma,sans-serif;font-size:15px;line-height:1.6}
+.wrap{max-width:900px;margin:0 auto;padding:14px}
+h1{font-size:20px;margin:6px 0 12px;color:var(--pri)}
+h2{font-size:16px;margin:0 0 10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label{display:block;font-size:13px;color:var(--mut);margin-bottom:3px}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+input.n{direction:ltr;text-align:right}
+button{font:inherit;cursor:pointer;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:8px 12px}
+button.p{background:var(--pri);border-color:var(--pri);color:#000;font-weight:700}
+button.sm{padding:3px 9px;font-size:13px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.hide{display:none}
+.jd{display:flex;gap:4px}.jd select{flex:1;min-width:0;padding:9px 4px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-bottom:12px}
+.st{border-radius:10px;padding:10px;background:var(--bg);border:1px solid var(--bd)}
+.st b{display:block;font-size:17px}
+.st span{font-size:12px;color:var(--mut)}
+.pos{color:var(--g)}.neg{color:var(--r)}
+.r-profit td:first-child{border-right:3px solid var(--g)}.r-loss td:first-child{border-right:3px solid var(--r)}
+.tw{overflow-x:auto}
+.sc{max-height:640px;overflow:auto;-webkit-overflow-scrolling:touch}.sc th{position:sticky;top:0;background:var(--card);z-index:1;box-shadow:0 1px 0 var(--bd)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:7px 8px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap}
+th{color:var(--mut);font-weight:600;font-size:13px}
+.bd{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12px}
+.t-deposit{background:var(--bb)}.t-withdraw{background:var(--ab)}.t-profit{background:var(--gb);color:var(--g)}.t-loss{background:var(--rb);color:var(--r)}
+.bar{height:8px;border-radius:4px;min-width:2px}
+#toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 16px;border-radius:8px;display:none;z-index:9}
+.mut{color:var(--mut);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>📒 دفتر معاملات</h1>
+<p class="mut" style="margin-top:-6px"><span id="sync">در حال اتصال…</span> <button class="sm" id="lo" type="button" style="display:none">خروج</button></p>
+
+<form id="f" class="card">
+  <h2 id="ft">ثبت تراکنش جدید</h2>
+  <div class="grid">
+    <div><label>نوع</label>
+      <select id="type"><option value="deposit">واریز</option><option value="withdraw">برداشت</option><option value="profit" selected>سود</option><option value="loss">ضرر</option></select></div>
+    <div><label>تاریخ</label><div class="jd" id="date"></div></div>
+    <div><label>مبلغ (تومان)</label><input class="n" id="amt" inputmode="numeric" autocomplete="off" placeholder="0"></div>
+  </div>
+  <div id="tf" class="grid" style="margin-top:10px">
+    <div><label>خرید / فروش</label><select id="side"><option value="buy">خرید</option><option value="sell">فروش</option></select></div>
+    <div><label>نقطه ورود</label><input class="n" id="entry" inputmode="decimal" autocomplete="off"></div>
+    <div><label>نقطه خروج</label><input class="n" id="exit" inputmode="decimal" autocomplete="off"></div>
+    <div><label>واحد</label><input class="n" id="sym" inputmode="decimal" autocomplete="off"></div>
+    <div><label>نرخ هر واحد (تومان)</label><input class="n" id="rate" inputmode="numeric" autocomplete="off"></div>
+  </div>
+  <p id="hint" class="mut" style="margin:6px 0 0;color:var(--r)"></p>
+  <div style="margin-top:10px"><label>توضیح (اختیاری)</label><input id="note"></div>
+  <div class="row" style="margin-top:12px">
+    <button class="p" type="submit" id="sb">ثبت</button>
+    <button type="button" id="cx" class="hide">انصراف از ویرایش</button>
+  </div>
+</form>
+
+<div class="card">
+  <h2>گزارش</h2>
+  <div class="row" style="margin-bottom:12px">
+    <div style="flex:1;min-width:130px"><label>از تاریخ</label><div class="jd" id="from"></div></div>
+    <div style="flex:1;min-width:130px"><label>تا تاریخ</label><div class="jd" id="to"></div></div>
+    <div style="flex:1;min-width:110px"><label>نوع</label>
+      <select id="ft2"><option value="">همه</option><option value="deposit">واریز</option><option value="withdraw">برداشت</option><option value="profit">سود</option><option value="loss">ضرر</option></select></div>
+    <div style="flex:1;min-width:120px"><label>ترتیب هر روز</label><select id="ord"><option value="new">جدیدترین بالا</option><option value="old">قدیمی‌ترین بالا</option></select></div>
+    <div style="flex:1;min-width:150px"><label>کارمزد هر معامله (تومان)</label><input class="n" id="fee" inputmode="numeric" autocomplete="off"></div>
+  </div>
+  <div class="row" style="margin-bottom:14px">
+    <button class="sm" data-q="today">امروز</button>
+    <button class="sm" data-q="7">۷ روز اخیر</button>
+    <button class="sm" data-q="month">این ماه</button>
+    <button class="sm" data-q="all">همه</button>
+  </div>
+  <div class="stats" id="stats"></div>
+
+  <h2>گزارش روزانه (سود، ضرر و دارایی پایان روز)</h2>
+  <div class="tw sc"><table><thead><tr><th>تاریخ</th><th>سود</th><th>ضرر</th><th>قبل از کارمزد</th><th>کارمزد</th><th>خالص پس از کارمزد</th><th>دارایی پایان روز</th><th style="width:20%"></th></tr></thead><tbody id="daily"></tbody></table></div>
+</div>
+
+<div class="card">
+  <h2>گزارش معاملات (فقط سود و ضرر) <span class="mut" id="tcnt"></span></h2>
+  <div class="tw sc"><table><thead><tr><th>تاریخ</th><th>خرید/فروش</th><th>واحد</th><th>نقطه ورود</th><th>نقطه خروج</th><th>نتیجه</th><th>مبلغ (تومان)</th><th>خالص پس از کارمزد</th></tr></thead><tbody id="trades"></tbody></table></div>
+  <p class="mut" id="tempty" style="text-align:center">در این بازه معامله‌ای ثبت نشده.</p>
+</div>
+
+<div class="card">
+  <h2>لیست تراکنش‌ها <span class="mut" id="cnt"></span></h2>
+  <div class="tw sc"><table><thead><tr><th>تاریخ</th><th>نوع</th><th>مبلغ (تومان)</th><th></th></tr></thead><tbody id="list"></tbody></table></div>
+  <p class="mut" id="empty" style="text-align:center">هنوز تراکنشی ثبت نشده.</p>
+  
+<div class="card">
+<h2>انتقال داده‌ها از نسخه‌ی قبلی</h2>
+<p class="mut">متن پشتیبان را از نسخه‌ی آنلاین قبلی کپی کن و اینجا بچسبان. این کار فقط یک بار انجام شود، وگرنه تراکنش‌ها تکراری می‌شوند.</p>
+<textarea id="impt" rows="5" placeholder="[{...}]" style="width:100%;direction:ltr;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px;font-family:monospace;font-size:12px"></textarea>
+<div class="row" style="margin-top:8px"><button type="button" class="p" id="imp">انتقال به سرور</button></div>
+</div>
+</div>
+<div id="auth" style="position:fixed;inset:0;background:var(--bg);z-index:20;display:none;align-items:center;justify-content:center;padding:16px">
+<form id="lf" class="card" style="width:100%;max-width:360px;margin:0">
+<h2>ورود به دفتر معاملات</h2>
+<label>ایمیل</label><input class="n" id="em" type="email" autocomplete="username" required>
+<label style="margin-top:10px">رمز عبور</label><input class="n" id="pw" type="password" autocomplete="current-password" required>
+<p id="lerr" style="color:var(--r);font-size:13px;min-height:20px;margin:8px 0"></p>
+<button class="p" type="submit" style="width:100%">ورود</button>
+</form></div>
+<div id="toast"></div>
+
+<script>
+const KEY='tradeLedger.v1';
+let rows=[],editId=null,delId=null;
+const $=id=>document.getElementById(id);
+const TN={deposit:'واریز',withdraw:'برداشت',profit:'سود',loss:'ضرر'};
+function load(){rows=[]}
+function save(){}
+function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',2200)}
+const fa=n=>Number(n).toLocaleString('fa-IR',{maximumFractionDigits:2});
+const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const L2E=s=>s.replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[٬،]/g,',').replace(/٫/g,'.');
+const num=s=>Number(L2E(s).replace(/,/g,''))||0;
+const jf=new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',month:'2-digit',day:'2-digit'});
+const jd=iso=>jf.format(new Date(iso+'T12:00:00'));
+const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const today=()=>iso(new Date());
+
+/* 3-digit grouping while typing, caret preserved */
+function fmt(el,dec){
+  const raw=L2E(el.value),p=el.selectionStart??raw.length;
+  const before=raw.slice(0,p).replace(/[^\d.]/g,'').length;
+  let [i,...f]=raw.replace(/[^\d.]/g,'').split('.');
+  i=i.replace(/^0+(?=\d)/,'');
+  let out=i.replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  if(dec&&f.length)out+='.'+f.join('');
+  el.value=out;
+  let c=0,np=0;
+  for(;np<out.length&&c<before;np++){if(/[\d.]/.test(out[np]))c++}
+  try{el.setSelectionRange(np,np)}catch(e){}
+}
+$('amt').addEventListener('input',e=>fmt(e.target,false));
+
+
+const isTrade=t=>t==='profit'||t==='loss';
+$('type').onchange=()=>$('tf').classList.toggle('hide',!isTrade($('type').value));
+
+function resetForm(){
+  editId=null;$('f').reset();$('date').value=lastDate();$('rate').value=rate.toLocaleString('en-US');$('hint').textContent='';
+  $('type').onchange();$('ft').textContent='ثبت تراکنش جدید';$('sb').textContent='ثبت';$('cx').classList.add('hide');
+}
+$('cx').onclick=resetForm;
+
+$('f').onsubmit=e=>{
+  e.preventDefault();
+  const t=$('type').value,amt=num($('amt').value);
+  if(!$('date').value||amt<=0)return toast('تاریخ و مبلغ را وارد کنید');
+  const r={id:editId||crypto.randomUUID(),ca:new Date().toISOString(),type:t,date:$('date').value,amount:amt,note:$('note').value.trim()};
+  if(isTrade(t)){r.side=$('side').value;r.entry=num($('entry').value);r.exit=num($('exit').value);r.symbol=$('sym').value.trim()}
+  if(editId){rows=rows.map(x=>x.id===editId?r:x)}else rows.push(r);
+  save();put(r);toast(editId?'ویرایش شد':'ثبت شد');resetForm();render();
+};
+
+function edit(id){
+  const r=rows.find(x=>x.id===id);if(!r)return;
+  editId=id;$('type').value=r.type;$('date').value=r.date;
+  $('amt').value=r.amount.toLocaleString('en-US');
+  $('tf').classList.toggle('hide',!isTrade(r.type));
+  $('side').value=r.side||'buy';
+  $('entry').value=r.entry?String(r.entry):'';
+  $('exit').value=r.exit?String(r.exit):'';
+  $('sym').value=r.symbol||'';$('note').value=r.note||'';
+  $('ft').textContent='ویرایش تراکنش';$('sb').textContent='ذخیره ویرایش';$('cx').classList.remove('hide');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function del(id){
+  if(delId!==id){delId=id;render();return}
+  rows=rows.filter(x=>x.id!==id);delId=null;save();rem(id);toast('حذف شد');render();
+}
+
+/* quick filters */
+document.querySelectorAll('[data-q]').forEach(b=>b.onclick=e=>{
+  e.preventDefault();const q=b.dataset.q,d=new Date();
+  if(q==='all'){$('from').value='';$('to').value=''}
+  else if(q==='today'){$('from').value=$('to').value=today()}
+  else if(q==='7'){const s=new Date();s.setDate(s.getDate()-6);$('from').value=iso(s);$('to').value=today()}
+  else{
+    const jday=+new Intl.DateTimeFormat('en-u-ca-persian-nu-latn',{day:'numeric'}).format(d);
+    const s=new Date();s.setDate(s.getDate()-(jday-1));$('from').value=iso(s);$('to').value=today();
+  }
+  render();
+});
+['from','to','ft2'].forEach(id=>$(id).onchange=render);
+
+const sum=a=>a.reduce((s,r)=>s+r.amount,0);
+const cls=n=>n>0?'pos':n<0?'neg':'';
+function render(){
+  const f=$('from').value,t=$('to').value,ty=$('ft2').value;
+  const fl=rows.filter(r=>(!f||r.date>=f)&&(!t||r.date<=t)&&(!ty||r.type===ty))
+    .sort(cmp);
+  const rg=rows.filter(r=>(!f||r.date>=f)&&(!t||r.date<=t));
+  const by=k=>rg.filter(r=>r.type===k);
+  const pr=sum(by('profit')),ls=sum(by('loss')),net=pr-ls;
+  const dp=sum(by('deposit')),wd=sum(by('withdraw'));
+  const balance=sum(rows.filter(r=>r.type==='deposit'))-sum(rows.filter(r=>r.type==='withdraw'))+sum(rows.filter(r=>r.type==='profit'))-sum(rows.filter(r=>r.type==='loss'))-fee*rows.filter(r=>isTrade(r.type)).length;
+  const nw=by('profit').length,nl=by('loss').length,wr=nw+nl?Math.round(nw/(nw+nl)*100):0;
+  const nT=nw+nl,fees=nT*fee,netAfter=net-fees;
+  const S=(l,v,c='')=>`<div class="st"><span>${l}</span><b class="${c}">${v}</b></div>`;
+  $('stats').innerHTML=S('مجموع سود',fa(pr),'pos')+S('مجموع ضرر',fa(ls),'neg')+S('سود/زیان قبل از کارمزد',fa(net),cls(net))+S('کارمزد کل ('+fa(nT)+' معامله)',fa(fees),'neg')+S('خالص پس از کارمزد',fa(netAfter),cls(netAfter))
+    +S('واریز',fa(dp))+S('برداشت',fa(wd))+S('تعداد معاملات / درصد برد',fa(nw+nl)+' / '+fa(wr)+'٪')+S('موجودی کل حساب',fa(balance),cls(balance));
+  /* daily */
+  const days={};
+  rg.forEach(r=>{const d=days[r.date]||(days[r.date]={p:0,l:0});if(r.type==='profit'){d.p+=r.amount;d.c=(d.c||0)+1}else if(r.type==='loss'){d.l+=r.amount;d.c=(d.c||0)+1}});
+  const eod={};let run=0;[...rows].sort((a,b)=>a.date.localeCompare(b.date)).forEach(r=>{run+=(r.type==='deposit'||r.type==='profit')?r.amount:-r.amount;if(isTrade(r.type))run-=fee;eod[r.date]=run});
+  const ds=Object.keys(days).sort().reverse(),mx=Math.max(1,...ds.map(k=>Math.abs(days[k].p-days[k].l-(days[k].c||0)*fee)));
+  $('daily').innerHTML=ds.length?ds.map(k=>{const d=days[k],g=d.p-d.l,fe=(d.c||0)*fee,n=g-fe;
+    return `<tr><td>${jd(k)}</td><td class="pos">${fa(d.p)}</td><td class="neg">${fa(d.l)}</td><td class="${cls(g)}">${fa(g)}</td><td class="neg">${fa(fe)}</td><td class="${cls(n)}"><b>${fa(n)}</b></td><td class="${cls(eod[k])}"><b>${fa(eod[k])}</b></td><td><div class="bar" style="width:${Math.abs(n)/mx*100}%;background:var(${n>=0?'--g':'--r'})"></div></td></tr>`}).join('')
+    :'<tr><td colspan="8" class="mut">در این بازه تراکنشی ثبت نشده.</td></tr>';
+  /* list */
+  const nf=n=>Number(n).toLocaleString('fa-IR',{useGrouping:false,maximumFractionDigits:6});
+  const tr=rg.filter(r=>isTrade(r.type)&&(!isTrade(ty)||r.type===ty)).sort(cmp);
+  $('tcnt').textContent='('+fa(tr.length)+')';
+  $('tempty').style.display=tr.length?'none':'block';
+  $('trades').innerHTML=tr.map(r=>`<tr class="r-${r.type}"><td>${jd(r.date)}</td><td>${r.side==='buy'?'خرید':'فروش'}</td><td>${esc(r.symbol)||'—'}</td><td>${nf(r.entry)}</td><td>${nf(r.exit)}</td><td><span class="bd t-${r.type}">${TN[r.type]}</span></td><td class="${r.type==='profit'?'pos':'neg'}">${r.type==='loss'?'-':''}${fa(r.amount)}</td><td class="${nvf(r)>=0?'pos':'neg'}"><b>${sgn(nvf(r))}</b></td></tr>`).join('');
+  $('cnt').textContent='('+fa(fl.length)+')';
+  $('empty').style.display=fl.length?'none':'block';
+  $('list').innerHTML=fl.map(r=>{
+    let d='';
+    if(isTrade(r.type))d=(r.side==='buy'?'خرید':'فروش')+(r.symbol?' '+esc(r.symbol):'')+` | ورود ${fa(r.entry)} ← خروج ${fa(r.exit)}`;
+    if(r.note)d+=(d?' — ':'')+esc(r.note);
+    const sign=r.type==='loss'||r.type==='withdraw'?'-':'';
+    return `<tr class="r-${r.type}"><td>${jd(r.date)}</td><td><span class="bd t-${r.type}">${TN[r.type]}</span></td><td class="${r.type==='profit'?'pos':r.type==='loss'?'neg':''}">${sign}${fa(r.amount)}</td>
+    <td><button class="sm" onclick="edit('${r.id}')">ویرایش</button> <button class="sm" onclick="del('${r.id}')">${delId===r.id?'مطمئنی؟':'حذف'}</button></td></tr>`}).join('');
+}
+/* Jalali date picker */
+const MN=['فروردین','اردیبهشت','خرداد','تیر','مرداد','شهریور','مهر','آبان','آذر','دی','بهمن','اسفند'];
+const PD=s=>String(s).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
+const pf=new Intl.DateTimeFormat('en-u-ca-persian-nu-latn',{year:'numeric',month:'numeric',day:'numeric',timeZone:'UTC'});
+function toJ(d){const p={};pf.formatToParts(d).forEach(x=>p[x.type]=+x.value);return [p.year||p.relatedYear,p.month,p.day]}
+function fromJ(y,m,d){
+  const key=a=>a[0]*10000+a[1]*100+a[2],t=key([y,m,d]);
+  let g=Date.UTC(y+621,2,21,12)+((m<=6?(m-1)*31:186+(m-7)*30)+d-1)*864e5;
+  for(let i=0;i<12;i++){const k=key(toJ(new Date(g)));if(k===t)break;g+=(k<t?1:-1)*864e5}
+  return new Date(g).toISOString().slice(0,10);
+}
+function mkJ(id,opt){
+  const el=$(id),cy=toJ(new Date())[0],b=opt?'<option value="">—</option>':'';
+  const O=(v,t)=>`<option value="${v}">${t}</option>`;
+  const mk=h=>{const s=document.createElement('select');s.innerHTML=b+h;return s};
+  const ds=mk(Array.from({length:31},(_,i)=>O(i+1,PD(i+1))).join('')),
+    ms=mk(MN.map((n,i)=>O(i+1,n)).join('')),
+    ys=mk(Array.from({length:8},(_,i)=>O(cy-6+i,PD(cy-6+i))).join(''));
+  el.append(ds,ms,ys);
+  Object.defineProperty(el,'value',{
+    get(){const y=+ys.value,m=+ms.value;let d=+ds.value;if(!y||!m||!d)return '';
+      for(;d>0;d--){const s=fromJ(y,m,d),j=toJ(new Date(s+'T12:00:00Z'));if(j[0]===y&&j[1]===m&&j[2]===d)return s}return ''},
+    set(v){if(!v){ys.value=ms.value=ds.value='';return}
+      const [y,m,d]=toJ(new Date(v+'T12:00:00Z'));
+      if(![...ys.options].some(o=>+o.value===y))ys.add(new Option(PD(y),y));
+      ys.value=y;ms.value=m;ds.value=d}
+  });
+}
+/* Supabase connection (email/password login, per-user rows via RLS) */
+const SB='https://zhyqdsfopcmvpaocyxsv.supabase.co',AK='sb_publishable_ZNQjMHQPVI_WLWC_QkApWg_kculnqIt',SK='tj.sess';
+let sess=null;
+try{sess=JSON.parse(localStorage.getItem(SK)||'null')}catch(e){}
+const setSync=(t,bad)=>{$('sync').textContent=t;$('sync').style.color=bad?'var(--r)':''};
+function showAuth(on){$('auth').style.display=on?'flex':'none';$('lo').style.display=on?'none':''}
+async function tokenReq(body,grant){
+  const r=await fetch(SB+'/auth/v1/token?grant_type='+grant,{method:'POST',headers:{apikey:AK,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error_description||j.msg||j.message||'خطا');
+  sess={access_token:j.access_token,refresh_token:j.refresh_token,expires_at:Date.now()+j.expires_in*1000,email:j.user&&j.user.email};
+  try{localStorage.setItem(SK,JSON.stringify(sess))}catch(e){}
+}
+async function getToken(){
+  if(!sess)throw new Error('auth');
+  if(sess.expires_at-Date.now()<60000){
+    try{await tokenReq({refresh_token:sess.refresh_token},'refresh_token')}
+    catch(e){sess=null;try{localStorage.removeItem(SK)}catch(_){}throw new Error('auth')}
+  }
+  return sess.access_token;
+}
+async function api(path,opt={}){
+  const t=await getToken();
+  const r=await fetch(SB+'/rest/v1/'+path,{method:opt.method||'GET',headers:{apikey:AK,Authorization:'Bearer '+t,'Content-Type':'application/json',...(opt.h||{})},body:opt.body?JSON.stringify(opt.body):undefined});
+  if(r.status===401){sess=null;throw new Error('auth')}
+  if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(j.message||('HTTP '+r.status))}
+  return r.status===204?null:r.json().catch(()=>null);
+}
+const toDb=r=>({id:r.id,type:r.type,date:r.date,amount:r.amount,side:r.side||null,entry_price:r.entry==null?null:r.entry,exit_price:r.exit==null?null:r.exit,unit:r.symbol||null,note:r.note||null});
+const fromDb=d=>({id:d.id,type:d.type,date:d.date,amount:Number(d.amount),side:d.side||undefined,entry:d.entry_price==null?0:Number(d.entry_price),exit:d.exit_price==null?0:Number(d.exit_price),symbol:d.unit||'',note:d.note||'',ca:d.created_at||''});
+let asc=false;try{asc=localStorage.getItem('tj.ord')==='old'}catch(e){}
+const lastDate=()=>{try{return localStorage.getItem('tj.ld')||today()}catch(e){return today()}};
+$('date').addEventListener('change',()=>{const v=$('date').value;if(v){try{localStorage.setItem('tj.ld',v)}catch(e){}}});
+let rate=23000;try{const v=localStorage.getItem('tj.rate');if(v!==null&&v!=='')rate=Number(v)||0}catch(e){}
+$('rate').value=rate.toLocaleString('en-US');
+function calcAmt(){
+  const en=num($('entry').value),ex=num($('exit').value),u=num($('sym').value),h=$('hint');
+  if(!(en>0&&ex>0&&u>0&&rate>0)){h.textContent='';return}
+  const diff=$('side').value==='buy'?ex-en:en-ex;
+  $('amt').value=Math.round(Math.abs(diff)*u*rate).toLocaleString('en-US');
+  h.textContent=diff!==0&&(diff>0)!==($('type').value==='profit')?'⚠ طبق نقطه ورود و خروج، این معامله '+(diff>0?'سود':'ضرر')+' است':'';
+}
+['entry','exit','sym'].forEach(id=>$(id).addEventListener('input',calcAmt));
+$('side').addEventListener('change',calcAmt);$('type').addEventListener('change',calcAmt);
+$('rate').addEventListener('input',e=>{fmt(e.target,false);rate=num(e.target.value);try{localStorage.setItem('tj.rate',String(rate))}catch(_){}calcAmt()});
+let fee=14000;try{const v=localStorage.getItem('tj.fee');if(v!==null&&v!=='')fee=Number(v)||0}catch(e){}
+$('fee').value=fee.toLocaleString('en-US');
+$('fee').addEventListener('input',e=>{fmt(e.target,false);fee=num(e.target.value);try{localStorage.setItem('tj.fee',String(fee))}catch(_){}render()});
+const nvf=r=>(r.type==='profit'?r.amount:-r.amount)-fee,sgn=v=>(v<0?'-':'')+fa(Math.abs(v));
+const cmp=(a,b)=>b.date.localeCompare(a.date)||(asc?-1:1)*(b.ca||'').localeCompare(a.ca||'')||b.id.localeCompare(a.id);
+$('ord').value=asc?'old':'new';
+$('ord').onchange=()=>{asc=$('ord').value==='old';try{localStorage.setItem('tj.ord',asc?'old':'new')}catch(e){}render()};
+async function fetchAll(){
+  let all=[],off=0;
+  for(;;){const p=await api('trade_journal?select=*&order=date.desc,created_at.desc&limit=1000&offset='+off);all=all.concat(p||[]);if(!p||p.length<1000)break;off+=1000}
+  rows=all.map(fromDb);render();
+}
+const authFail=()=>{showAuth(true);setSync('لطفاً وارد شوید',1)};
+const wf=e=>{if(e&&e.message==='auth')return authFail();toast('خطا در ارتباط با سرور');setSync('⚠ ارتباط با سرور ناموفق بود',1);fetchAll().catch(()=>{})};
+function put(r){api('trade_journal?on_conflict=id',{method:'POST',h:{Prefer:'resolution=merge-duplicates,return=minimal'},body:toDb(r)}).then(()=>fetchAll()).catch(wf)}
+function rem(id){api('trade_journal?id=eq.'+encodeURIComponent(id),{method:'DELETE'}).catch(wf)}
+async function start(){
+  setSync('در حال بارگذاری…');
+  try{await fetchAll();showAuth(false);setSync('✓ متصل به سرور'+(sess&&sess.email?' ('+sess.email+')':''))}
+  catch(e){e.message==='auth'?authFail():setSync('⚠ ارتباط با سرور ناموفق بود: '+e.message,1)}
+}
+$('lf').onsubmit=async e=>{
+  e.preventDefault();$('lerr').textContent='';
+  try{await tokenReq({email:$('em').value.trim(),password:$('pw').value},'password');$('pw').value='';await start()}
+  catch(err){$('lerr').textContent=/invalid login/i.test(err.message)?'ایمیل یا رمز اشتباه است':err.message}
+};
+$('lo').onclick=()=>{sess=null;try{localStorage.removeItem(SK)}catch(e){}rows=[];render();authFail()};
+$('imp').onclick=async()=>{
+  let a;try{a=JSON.parse($('impt').value.trim())}catch(e){return toast('متن پشتیبان معتبر نیست')}
+  if(!Array.isArray(a))return toast('متن پشتیبان معتبر نیست');
+  const ok=a.filter(r=>r&&['deposit','withdraw','profit','loss'].includes(r.type)&&/^\d{4}-\d{2}-\d{2}$/.test(r.date)&&Number(r.amount)>0);
+  if(!ok.length)return toast('ردیف معتبری پیدا نشد');
+  const body=ok.map((r,i)=>({...toDb({...r,id:crypto.randomUUID(),amount:Number(r.amount)}),created_at:new Date(Date.now()-i*1000).toISOString()}));
+  $('imp').disabled=true;
+  try{await api('trade_journal',{method:'POST',h:{Prefer:'return=minimal'},body});$('impt').value='';toast(fa(body.length)+' تراکنش منتقل شد');await fetchAll()}
+  catch(e){toast(e.message==='auth'?'ابتدا وارد شوید':'خطا: '+e.message);$('imp').disabled=false}
+};
+function boot(){sess?start():authFail()}
+mkJ('date');mkJ('from',1);mkJ('to',1);
+load();$('date').value=lastDate();$('type').onchange();render();boot();
+</script>
+<script>if("serviceWorker" in navigator&&location.protocol.indexOf("http")===0)navigator.serviceWorker.register("sw.js").catch(function(){});</script>
+</body>
+</html>
