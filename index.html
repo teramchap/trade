@@ -96,6 +96,21 @@ th{color:var(--mut);font-weight:600;font-size:13px}
 </div>
 
 <div class="card">
+  <h2>نمودار موجودی خالص (کندل)</h2>
+  <div class="row" style="margin-bottom:10px">
+    <button class="sm p" type="button" data-tf="day">روز</button>
+    <button class="sm" type="button" data-tf="week">هفته</button>
+    <button class="sm" type="button" data-tf="month">ماه</button>
+  </div>
+  <div style="display:flex;direction:ltr;border:1px solid var(--bd);border-radius:8px;background:var(--bg)">
+    <div id="cax" style="flex:none"></div>
+    <div id="cplot" style="overflow-x:auto;flex:1"></div>
+  </div>
+  <p id="cinfo" style="margin:8px 0 0;font-size:13px"></p>
+  <p class="mut" style="margin:4px 0 0">موجودی پس از کسر کارمزد. باز و بسته شدن کندل = موجودی اول و آخر دوره؛ سایه‌ها = بیشترین و کمترین موجودی. ترتیب معاملات هر روز از پایین لیست تراکنش‌ها به بالاست. روی هر کندل بزن تا جزئیاتش را ببینی.</p>
+</div>
+
+<div class="card">
   <h2>گزارش معاملات (فقط سود و ضرر) <span class="mut" id="tcnt"></span></h2>
   <div class="tw sc"><table><thead><tr><th>تاریخ</th><th>خرید/فروش</th><th>واحد</th><th>نقطه ورود</th><th>نقطه خروج</th><th>نتیجه</th><th>مبلغ (تومان)</th><th>خالص پس از کارمزد</th></tr></thead><tbody id="trades"></tbody></table></div>
   <p class="mut" id="tempty" style="text-align:center">در این بازه معامله‌ای ثبت نشده.</p>
@@ -236,6 +251,7 @@ function render(){
   $('tcnt').textContent='('+fa(tr.length)+')';
   $('tempty').style.display=tr.length?'none':'block';
   $('trades').innerHTML=tr.map(r=>`<tr class="r-${r.type}"><td>${jd(r.date)}</td><td>${r.side==='buy'?'خرید':'فروش'}</td><td>${esc(r.symbol)||'—'}</td><td>${nf(r.entry)}</td><td>${nf(r.exit)}</td><td><span class="bd t-${r.type}">${TN[r.type]}</span></td><td class="${r.type==='profit'?'pos':'neg'}">${r.type==='loss'?'-':''}${fa(r.amount)}</td><td class="${nvf(r)>=0?'pos':'neg'}"><b>${sgn(nvf(r))}</b></td></tr>`).join('');
+  drawChart();
   $('cnt').textContent='('+fa(fl.length)+')';
   $('empty').style.display=fl.length?'none':'block';
   $('list').innerHTML=fl.map(r=>{
@@ -326,6 +342,60 @@ const nvf=r=>(r.type==='profit'?r.amount:-r.amount)-fee,sgn=v=>(v<0?'-':'')+fa(M
 const cmp=(a,b)=>b.date.localeCompare(a.date)||(asc?-1:1)*(b.ca||'').localeCompare(a.ca||'')||b.id.localeCompare(a.id);
 $('ord').value=asc?'old':'new';
 $('ord').onchange=()=>{asc=$('ord').value==='old';try{localStorage.setItem('tj.ord',asc?'old':'new')}catch(e){}render()};
+/* Equity candlestick chart (net balance after fees) */
+let tf='day';
+const keyOf=d=>{
+  if(tf==='week'){const t=new Date(d+'T12:00:00Z');t.setUTCDate(t.getUTCDate()-((t.getUTCDay()+1)%7));return t.toISOString().slice(0,10)}
+  if(tf==='month'){const j=toJ(new Date(d+'T12:00:00Z'));return j[0]+'-'+j[1]}
+  return d;
+};
+const labOf=k=>{
+  if(tf==='month'){const p=k.split('-');return [MN[p[1]-1]+' '+PD(p[0]),MN[p[1]-1]]}
+  const s=jd(k);return [(tf==='week'?'هفته از ':'')+s,s.slice(5)];
+};
+function candles(){
+  const seq=[...rows].sort(cmp).reverse();
+  let bal=0;const m=new Map();
+  for(const r of seq){
+    const k=keyOf(r.date);
+    let c=m.get(k);
+    if(!c){const L=labOf(k);c={k,o:bal,h:bal,l:bal,c:bal,n:0,d0:r.date,d1:r.date,lab:L[0],sl:L[1]};m.set(k,c)}
+    bal+=(r.type==='deposit'||r.type==='profit')?r.amount:-r.amount;
+    if(isTrade(r.type))bal-=fee;
+    c.c=bal;if(bal>c.h)c.h=bal;if(bal<c.l)c.l=bal;c.n++;c.d1=r.date;
+  }
+  return [...m.values()];
+}
+function drawChart(){
+  const f=$('from').value,t=$('to').value,ax=$('cax'),pl=$('cplot');
+  const cs=candles().filter(c=>(!f||c.d1>=f)&&(!t||c.d0<=t));
+  if(!cs.length){ax.innerHTML='';pl.innerHTML='';$('cinfo').textContent='در این بازه تراکنشی برای نمودار نیست.';return}
+  const H=320,B=26,P=14,step=24,bw=14,W=cs.length*step+16;
+  let lo=Math.min(...cs.map(c=>c.l)),hi=Math.max(...cs.map(c=>c.h));
+  if(hi===lo){hi+=1;lo-=1}
+  const pd=(hi-lo)*.06;lo-=pd;hi+=pd;
+  const y=v=>P+(hi-v)/(hi-lo)*(H-B-2*P);
+  const ab=v=>Math.abs(v)>=1e6?fa(Math.round(v/1e5)/10)+' م':fa(Math.round(v));
+  let g='',a='';
+  for(let i=0;i<=4;i++){
+    const v=lo+(hi-lo)*i/4,yy=y(v);
+    g+=`<line x1="0" x2="${W}" y1="${yy}" y2="${yy}" style="stroke:var(--bd)"/>`;
+    a+=`<text x="60" y="${yy+4}" text-anchor="end" font-size="10" style="fill:var(--mut)">${ab(v)}</text>`;
+  }
+  const every=Math.ceil(46/step);
+  cs.forEach((c,i)=>{
+    const x=8+i*step+step/2,col=c.c>=c.o?'var(--g)':'var(--r)';
+    const yt=Math.min(y(c.o),y(c.c)),hh=Math.max(2,Math.abs(y(c.o)-y(c.c)));
+    g+=`<g data-i="${i}" style="cursor:pointer"><rect x="${x-step/2}" y="0" width="${step}" height="${H-B}" fill="transparent"/><line x1="${x}" x2="${x}" y1="${y(c.h)}" y2="${y(c.l)}" stroke-width="1.5" style="stroke:${col}"/><rect x="${x-bw/2}" y="${yt}" width="${bw}" height="${hh}" rx="1.5" style="fill:${col}"/></g>`;
+    if(i%every===0)g+=`<text x="${x}" y="${H-8}" text-anchor="middle" font-size="9" style="fill:var(--mut)">${c.sl}</text>`;
+  });
+  ax.innerHTML=`<svg width="64" height="${H}">${a}</svg>`;
+  pl.innerHTML=`<svg width="${W}" height="${H}">${g}</svg>`;
+  const show=i=>{const c=cs[i];$('cinfo').textContent=c.lab+' — باز: '+fa(c.o)+' | بالا: '+fa(c.h)+' | پایین: '+fa(c.l)+' | بسته: '+fa(c.c)+' | '+fa(c.n)+' تراکنش'};
+  pl.onclick=e=>{const g=e.target.closest('[data-i]');if(g)show(+g.dataset.i)};
+  show(cs.length-1);pl.scrollLeft=pl.scrollWidth;
+}
+document.querySelectorAll('[data-tf]').forEach(b=>b.onclick=()=>{tf=b.dataset.tf;document.querySelectorAll('[data-tf]').forEach(x=>x.classList.toggle('p',x===b));drawChart()});
 async function fetchAll(){
   let all=[],off=0;
   for(;;){const p=await api('trade_journal?select=*&order=date.desc,created_at.desc&limit=1000&offset='+off);all=all.concat(p||[]);if(!p||p.length<1000)break;off+=1000}
